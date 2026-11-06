@@ -26,10 +26,6 @@ pub(crate) fn shortcut(app: &PhotocraftApp, tool: Tool) -> Option<String> {
     crate::shortcuts::effective_shortcut(app, &id(tool), default(tool).as_deref())
 }
 
-pub(crate) fn uses_default(app: &PhotocraftApp, tool: Tool) -> bool {
-    !app.session.prefs().shortcuts.contains_key(&id(tool))
-}
-
 /// A tool's shortcut in effect, normalised (`None` when it has none).
 fn normalized(app: &PhotocraftApp, tool: Tool) -> Option<String> {
     shortcut(app, tool).as_deref().and_then(photocraft_engine::prefs::normalize_shortcut)

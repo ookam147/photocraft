@@ -465,16 +465,16 @@ fn tap(app: &mut PhotocraftApp, ctx: &egui::Context, key: Key, modifiers: Modifi
 #[test]
 fn tools_given_the_same_key_in_the_dialog_share_it() {
     let (mut h, id) = dialog(1.0, "tools.select.pencil", "tools.select.pencil");
-    capture_key(&mut h, id, Key::F6, Modifiers::NONE);
+    capture_key(&mut h, id, Key::F13, Modifiers::NONE);
     h.state_mut().ui.dialog_mut(id).unwrap().fields.insert("selected".into(), json!("tools.select.eraser"));
     h.run_steps(2);
-    capture_key(&mut h, id, Key::F6, Modifiers::NONE);
+    capture_key(&mut h, id, Key::F13, Modifiers::NONE);
     assert!(field(&h, id, "conflict").is_null(), "{}", field(&h, id, "conflict"));
     assert!(!field(&h, id, "message").as_str().unwrap_or("").contains("already in use"), "{}", field(&h, id, "message"));
     crate::dialogs::confirm(h.state_mut(), id).unwrap();
     let prefs = h.state().session.prefs();
-    assert_eq!(prefs.shortcuts.get("tools.select.pencil").map(String::as_str), Some("F6"));
-    assert_eq!(prefs.shortcuts.get("tools.select.eraser").map(String::as_str), Some("F6"));
+    assert_eq!(prefs.shortcuts.get("tools.select.pencil").map(String::as_str), Some("F13"));
+    assert_eq!(prefs.shortcuts.get("tools.select.eraser").map(String::as_str), Some("F13"));
 }
 
 /// A custom key shared by several tools picks their group, and ⇧ with it cycles the group.
@@ -483,30 +483,31 @@ fn a_shared_custom_key_selects_its_group_and_shift_cycles_it() {
     use crate::state::Tool;
     let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
     let ctx = egui::Context::default();
-    app.run("edit.keyboardShortcuts", json!({"set": {"tools.select.pencil": "F6", "tools.select.eraser": "F6", "tools.select.blur": "F6"}, "allowUnknown": true}))
+    // F6 and Shift+F6 already belong to Color and Feather; use an unassigned pair.
+    app.run("edit.keyboardShortcuts", json!({"set": {"tools.select.pencil": "F13", "tools.select.eraser": "F13", "tools.select.blur": "F13"}, "allowUnknown": true}))
         .unwrap();
     let group = crate::tool_shortcuts::group(&app, Tool::Pencil);
     assert_eq!(group.len(), 3, "{group:?}");
     app.ui.tool = Tool::Move;
-    tap(&mut app, &ctx, Key::F6, Modifiers::NONE);
+    tap(&mut app, &ctx, Key::F13, Modifiers::NONE);
     assert_eq!(app.ui.tool, group[0], "the key picks the group's first tool");
-    tap(&mut app, &ctx, Key::F6, Modifiers::NONE);
+    tap(&mut app, &ctx, Key::F13, Modifiers::NONE);
     assert_eq!(app.ui.tool, group[0], "Use Shift Key for Tool Switch: the plain key keeps the tool");
-    tap(&mut app, &ctx, Key::F6, Modifiers::SHIFT);
+    tap(&mut app, &ctx, Key::F13, Modifiers::SHIFT);
     assert_eq!(app.ui.tool, group[1]);
-    tap(&mut app, &ctx, Key::F6, Modifiers::SHIFT);
+    tap(&mut app, &ctx, Key::F13, Modifiers::SHIFT);
     assert_eq!(app.ui.tool, group[2]);
-    tap(&mut app, &ctx, Key::F6, Modifiers::SHIFT);
+    tap(&mut app, &ctx, Key::F13, Modifiers::SHIFT);
     assert_eq!(app.ui.tool, group[0], "the cycle wraps");
-    tap(&mut app, &ctx, Key::F6, Modifiers::SHIFT);
+    tap(&mut app, &ctx, Key::F13, Modifiers::SHIFT);
     // Another group, then back: the key returns to the group's last-used tool.
     tap(&mut app, &ctx, Key::V, Modifiers::NONE);
     assert_eq!(app.ui.tool, Tool::Move);
-    tap(&mut app, &ctx, Key::F6, Modifiers::NONE);
+    tap(&mut app, &ctx, Key::F13, Modifiers::NONE);
     assert_eq!(app.ui.tool, group[1], "the group remembers its last tool");
     // Without the preference the plain key cycles.
     app.session.edit_prefs(|p| p.tools.use_shift_key_for_tool_switch = false);
-    tap(&mut app, &ctx, Key::F6, Modifiers::NONE);
+    tap(&mut app, &ctx, Key::F13, Modifiers::NONE);
     assert_eq!(app.ui.tool, group[2]);
 }
 
