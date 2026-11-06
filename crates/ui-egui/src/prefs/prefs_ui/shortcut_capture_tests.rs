@@ -484,8 +484,11 @@ fn a_shared_custom_key_selects_its_group_and_shift_cycles_it() {
     let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
     let ctx = egui::Context::default();
     // F6 and Shift+F6 already belong to Color and Feather; use an unassigned pair.
-    app.run("edit.keyboardShortcuts", json!({"set": {"tools.select.pencil": "F13", "tools.select.eraser": "F13", "tools.select.blur": "F13"}, "allowUnknown": true}))
-        .unwrap();
+    app.run(
+        "edit.keyboardShortcuts",
+        json!({"set": {"tools.select.pencil": "F13", "tools.select.eraser": "F13", "tools.select.blur": "F13"}, "allowUnknown": true}),
+    )
+    .unwrap();
     let group = crate::tool_shortcuts::group(&app, Tool::Pencil);
     assert_eq!(group.len(), 3, "{group:?}");
     app.ui.tool = Tool::Move;

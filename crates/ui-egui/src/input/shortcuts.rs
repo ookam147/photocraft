@@ -886,7 +886,8 @@ fn handle_escape_and_view_keys(app: &mut PhotocraftApp, ctx: &egui::Context) {
     // A held tool letter is a spring-loaded tool (#2672), not a burst of presses: its key
     // repeats are dropped rather than cycling the group.
     if ctx.input(|i| i.events.iter().any(|e| matches!(e, egui::Event::Key { pressed: true, repeat: true, .. }))) {
-        let letters: Vec<Key> = crate::tool_shortcuts::keys(app).iter().filter_map(|(sc, _)| parse(sc).filter(|k| k.modifiers.is_none())).map(|k| k.logical_key).collect();
+        let letters: Vec<Key> =
+            crate::tool_shortcuts::keys(app).iter().filter_map(|(sc, _)| parse(sc).filter(|k| k.modifiers.is_none())).map(|k| k.logical_key).collect();
         let tool_key = |k: Key| crate::spring_tools::is_tool_key(k) || letters.contains(&k);
         ctx.input_mut(|i| i.events.retain(|e| !matches!(e, egui::Event::Key { key, pressed: true, repeat: true, .. } if tool_key(*key))));
     }
