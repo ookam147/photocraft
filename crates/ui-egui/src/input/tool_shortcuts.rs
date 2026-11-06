@@ -1,5 +1,6 @@
-//! Toolbar tools in Edit › Keyboard Shortcuts (#4086). Explicit assignments select an
-//! individual tool; unchanged tools keep Photoshop's shared keys and Shift cycling.
+//! Toolbar tools in Edit › Keyboard Shortcuts (#4086). Tools whose keys in effect are the same
+//! form one group, as Photoshop's shared letters do: the key picks the group and ⇧+key cycles
+//! it. That holds for keys the user assigns too, so several tools can share a custom key.
 
 use crate::{PhotocraftApp, state::Tool};
 
@@ -27,6 +28,31 @@ pub(crate) fn shortcut(app: &PhotocraftApp, tool: Tool) -> Option<String> {
 
 pub(crate) fn uses_default(app: &PhotocraftApp, tool: Tool) -> bool {
     !app.session.prefs().shortcuts.contains_key(&id(tool))
+}
+
+/// A tool's shortcut in effect, normalised (`None` when it has none).
+fn normalized(app: &PhotocraftApp, tool: Tool) -> Option<String> {
+    shortcut(app, tool).as_deref().and_then(photocraft_engine::prefs::normalize_shortcut)
+}
+
+/// Every tool shortcut in effect, once each, with the first tool (toolbar order) holding it.
+pub(crate) fn keys(app: &PhotocraftApp) -> Vec<(String, Tool)> {
+    let mut out: Vec<(String, Tool)> = Vec::new();
+    for t in Tool::ALL {
+        if let Some(sc) = normalized(app, t)
+            && !out.iter().any(|(s, _)| *s == sc)
+        {
+            out.push((sc, t));
+        }
+    }
+    out
+}
+
+/// The tools sharing `tool`'s shortcut in effect, in toolbar order (`tool` included); empty
+/// when it has none.
+pub(crate) fn group(app: &PhotocraftApp, tool: Tool) -> Vec<Tool> {
+    let Some(sc) = normalized(app, tool) else { return Vec::new() };
+    Tool::ALL.into_iter().filter(|t| normalized(app, *t).as_deref() == Some(sc.as_str())).collect()
 }
 
 #[cfg(test)]

@@ -644,18 +644,25 @@ impl Default for UiState {
 }
 
 impl UiState {
-    /// Records the current tool as the last one used in its shortcut group.
+    /// Records the current tool as the most recently used, for the shortcut group it is in.
+    /// Groups follow the keys in effect, which Edit › Keyboard Shortcuts can change, so every
+    /// tool keeps its place (newest last) rather than one entry per default letter.
     pub fn remember_group_tool(&mut self) {
         let tool = self.tool;
-        if !self.group_tools.contains(&tool) {
-            self.group_tools.retain(|t| t.key() != tool.key());
+        if self.group_tools.last() != Some(&tool) {
+            self.group_tools.retain(|t| *t != tool);
             self.group_tools.push(tool);
         }
     }
 
     /// The last tool used in the shortcut group of `key`, if any.
     pub fn group_tool(&self, key: char) -> Option<Tool> {
-        self.group_tools.iter().copied().find(|t| t.key() == key)
+        self.group_tools.iter().rev().copied().find(|t| t.key() == key)
+    }
+
+    /// The last tool used among `group`, if any.
+    pub fn last_of(&self, group: &[Tool]) -> Option<Tool> {
+        self.group_tools.iter().rev().copied().find(|t| group.contains(t))
     }
 
     pub fn alloc_id(&mut self) -> u64 {

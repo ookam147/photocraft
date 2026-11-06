@@ -446,3 +446,88 @@ fn accept_takes_the_key_from_every_command_holding_it() {
     let o = field(&h, id, "overrides");
     assert_eq!((o["edit.cut"].clone(), o["edit.copy"].clone(), o["edit.paste"].clone()), (json!(""), json!(""), json!("Cmd+X")), "{o}");
 }
+
+/// Press and release `key` with `modifiers` through the shortcut handler, outside any dialog.
+fn tap(app: &mut PhotocraftApp, ctx: &egui::Context, key: Key, modifiers: Modifiers) {
+    ctx.begin_pass(egui::RawInput {
+        events: vec![
+            Event::ModifiersChanged(modifiers),
+            Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers },
+            Event::Key { key, physical_key: None, pressed: false, repeat: false, modifiers },
+        ],
+        ..Default::default()
+    });
+    crate::shortcuts::handle(app, ctx);
+    ctx.end_pass().textures_delta.clear();
+}
+
+/// Tools given the same key in the dialog keep it (no conflict, OK takes it from none of them).
+#[test]
+fn tools_given_the_same_key_in_the_dialog_share_it() {
+    let (mut h, id) = dialog(1.0, "tools.select.pencil", "tools.select.pencil");
+    capture_key(&mut h, id, Key::F6, Modifiers::NONE);
+    h.state_mut().ui.dialog_mut(id).unwrap().fields.insert("selected".into(), json!("tools.select.eraser"));
+    h.run_steps(2);
+    capture_key(&mut h, id, Key::F6, Modifiers::NONE);
+    assert!(field(&h, id, "conflict").is_null(), "{}", field(&h, id, "conflict"));
+    assert!(!field(&h, id, "message").as_str().unwrap_or("").contains("already in use"), "{}", field(&h, id, "message"));
+    crate::dialogs::confirm(h.state_mut(), id).unwrap();
+    let prefs = h.state().session.prefs();
+    assert_eq!(prefs.shortcuts.get("tools.select.pencil").map(String::as_str), Some("F6"));
+    assert_eq!(prefs.shortcuts.get("tools.select.eraser").map(String::as_str), Some("F6"));
+}
+
+/// A custom key shared by several tools picks their group, and ⇧ with it cycles the group.
+#[test]
+fn a_shared_custom_key_selects_its_group_and_shift_cycles_it() {
+    use crate::state::Tool;
+    let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+    let ctx = egui::Context::default();
+    app.run("edit.keyboardShortcuts", json!({"set": {"tools.select.pencil": "F6", "tools.select.eraser": "F6", "tools.select.blur": "F6"}, "allowUnknown": true}))
+        .unwrap();
+    let group = crate::tool_shortcuts::group(&app, Tool::Pencil);
+    assert_eq!(group.len(), 3, "{group:?}");
+    app.ui.tool = Tool::Move;
+    tap(&mut app, &ctx, Key::F6, Modifiers::NONE);
+    assert_eq!(app.ui.tool, group[0], "the key picks the group's first tool");
+    tap(&mut app, &ctx, Key::F6, Modifiers::NONE);
+    assert_eq!(app.ui.tool, group[0], "Use Shift Key for Tool Switch: the plain key keeps the tool");
+    tap(&mut app, &ctx, Key::F6, Modifiers::SHIFT);
+    assert_eq!(app.ui.tool, group[1]);
+    tap(&mut app, &ctx, Key::F6, Modifiers::SHIFT);
+    assert_eq!(app.ui.tool, group[2]);
+    tap(&mut app, &ctx, Key::F6, Modifiers::SHIFT);
+    assert_eq!(app.ui.tool, group[0], "the cycle wraps");
+    tap(&mut app, &ctx, Key::F6, Modifiers::SHIFT);
+    // Another group, then back: the key returns to the group's last-used tool.
+    tap(&mut app, &ctx, Key::V, Modifiers::NONE);
+    assert_eq!(app.ui.tool, Tool::Move);
+    tap(&mut app, &ctx, Key::F6, Modifiers::NONE);
+    assert_eq!(app.ui.tool, group[1], "the group remembers its last tool");
+    // Without the preference the plain key cycles.
+    app.session.edit_prefs(|p| p.tools.use_shift_key_for_tool_switch = false);
+    tap(&mut app, &ctx, Key::F6, Modifiers::NONE);
+    assert_eq!(app.ui.tool, group[2]);
+}
+
+/// A tool given a letter of Photoshop's joins that letter's group.
+#[test]
+fn a_tool_given_a_default_letter_joins_its_group() {
+    use crate::state::Tool;
+    let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+    let ctx = egui::Context::default();
+    app.run("edit.keyboardShortcuts", json!({"set": {"tools.select.eraser": "B"}, "allowUnknown": true})).unwrap();
+    let group = crate::tool_shortcuts::group(&app, Tool::Brush);
+    assert!(group.contains(&Tool::Eraser) && group.contains(&Tool::Pencil), "{group:?}");
+    app.ui.tool = Tool::Move;
+    tap(&mut app, &ctx, Key::B, Modifiers::NONE);
+    assert_eq!(app.ui.tool, group[0]);
+    let mut seen = vec![app.ui.tool];
+    for _ in 1..group.len() {
+        tap(&mut app, &ctx, Key::B, Modifiers::SHIFT);
+        seen.push(app.ui.tool);
+    }
+    assert_eq!(seen, group, "⇧B visits every tool on B, the Eraser included");
+    tap(&mut app, &ctx, Key::E, Modifiers::NONE);
+    assert_ne!(app.ui.tool, Tool::Eraser, "the Eraser left its own letter's group");
+}

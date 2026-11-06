@@ -269,11 +269,14 @@ pub(super) fn shortcuts_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut
                 message_warning = true;
                 capture = false;
             } else if let Some(sc) = shortcut_text(key, m) {
+                // Tools may share a key: they form a group that ⇧+key cycles, as Photoshop's do.
+                let selected_tool = crate::tool_shortcuts::tool(&selected).is_some();
                 let clash_ids: Vec<&str> = items
                     .iter()
                     .filter(|(id, _, _, def)| {
                         let cur = eff(&overrides, id, def);
                         *id != selected
+                            && !(selected_tool && crate::tool_shortcuts::tool(id).is_some())
                             && (cur.as_deref().and_then(prefs::normalize_shortcut) == Some(sc.clone())
                                 || eff_alts(&alt_overrides, id, cur.as_deref()).contains(&sc))
                     })

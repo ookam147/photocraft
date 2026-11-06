@@ -362,8 +362,10 @@ pub fn confirm(app: &mut PhotocraftApp, f: &Map<String, Value>) -> Result<Value,
                 if (!is_alt && ov.get(&id).is_some_and(String::is_empty)) || (is_alt && alt.get(&id).is_some_and(|k| !k.contains(&norm))) {
                     continue;
                 }
+                let is_tool = crate::tool_shortcuts::tool(&id).is_some();
                 for (other, _, _, def) in &items {
-                    if *other == id {
+                    // Tools may share a key: they form a group that ⇧+key cycles.
+                    if *other == id || (is_tool && crate::tool_shortcuts::tool(other).is_some()) {
                         continue;
                     }
                     let held = match ov.get(other) {
